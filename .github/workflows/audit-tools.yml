@@ -51,6 +51,32 @@ jobs:
           echo "$out" | grep -q "NEAR-DUPLICATES"
           echo "$out" | grep -q "STALE MARKERS"
 
+      - name: archive guard refuses a protected skill
+        run: |
+          set +e
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile demo-a)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 1
+          echo "$out" | grep -q "PROTECTED"
+
+      - name: archive guard clears an unused skill
+        run: |
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile --min-uses 100 demo-b)
+          echo "$out"
+          echo "$out" | grep -q "all clear"
+
+      - name: archive guard flags an archived skill that still looks live
+        run: |
+          set +e
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile --audit-archive)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 1
+          echo "$out" | grep -q "old-thing"
+
       - name: scripts are read-only (no file writes)
         run: |
           before=$(find tests/fixture -type f -exec sha256sum {} + | sort | sha256sum)

@@ -38,6 +38,33 @@ service undoes the cleanup silently.
   practical limit is truncated when loaded: the top of the file arrives and the
   tail is silently missing. Split the body into `references/` with a thin index.
 
+## Protecting what is in use
+
+Bulk retirement is driven by name tokens or by a "stale" flag, and both are wrong
+about the same skill: the one that is used every day but shares a word with the
+retired project, or whose directory has not changed since it was written well.
+
+Two mechanisms, both cheap:
+
+- **A protected list beside the skills** — `skills/.protected.json`,
+  `{"do_not_archive": ["name-a"]}`. It is the only place a name is allowed to
+  override the usage counters, and it is edited by hand.
+- **A usage gate before the move** — `scripts/skill_archive_guard.py` refuses any
+  candidate that is protected, has more logged uses than a threshold, or was used
+  in the last month:
+
+  ```bash
+  python3 scripts/skill_archive_guard.py --profile ~/.hermes --file candidates.txt
+  python3 scripts/skill_archive_guard.py --profile ~/.hermes --audit-archive
+  ```
+
+  `--audit-archive` answers the question the guard cannot prevent: what is already
+  in the archive that still looks live. Run it after every pass.
+
+A refusal is information, not an obstacle. If the retirement is genuinely intended,
+remove the name from the protected list deliberately and say so in the report — never
+widen the threshold to get past it.
+
 ## Retiring a service or a whole project
 
 Order is load-bearing.

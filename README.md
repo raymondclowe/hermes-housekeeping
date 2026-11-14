@@ -35,9 +35,10 @@ the diagnosis is usually right and the application is what breaks.
 | `scripts/surface_audit.py` | first pass: sizes and entry counts per surface, skills over the loader limit, duplicate skill descriptions |
 | `scripts/rule_sweep.py` | before editing any standing rule: every surface that carries it, live and archived, with tombstones marked |
 | `scripts/memory_trim.py` | near-duplicate entries, stale markers, and facts sitting in a capped behavioural file |
+| `scripts/skill_archive_guard.py` | before a bulk archive: refuses protected skills and anything still in use; `--audit-archive` finds past mistakes |
 | `scripts/cron_orphans.py` | scheduled jobs that point at paths which no longer exist — they fail silently forever |
 
-The scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`). CI runs all four against `tests/fixture/` on every pull request, and asserts they write nothing.
+The scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`). CI runs all five against `tests/fixture/` on every pull request, and asserts they write nothing.
 
 ```bash
 python3 scripts/surface_audit.py --profile ~/.hermes
