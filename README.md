@@ -1,8 +1,12 @@
 # Hermes housekeeping
 
+## Human read this
+
+Point your hermes at this repo.
+
 Use these instructions to review Hermes's own persistent context and configuration for opportunities to make it clearer, smaller, and more consistent.
 
-## Self-audit instructions
+## Self-audit instructions: Hermes read this
 
 Perform a housecleaning check-up of your own state. Read `MEMORY.md`, `USER.md`, the available skills list, and the configuration, including any profiles. If these items are stored in different locations or exposed through different interfaces, inspect the corresponding sources. Do not assume a file or setting exists if you cannot find it.
 
