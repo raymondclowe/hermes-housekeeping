@@ -42,7 +42,15 @@ the diagnosis is usually right and the application is what breaks.
 | `scripts/skill_archive_guard.py` | before a bulk archive: refuses protected skills and anything still in use; `--audit-archive` finds past mistakes |
 | `scripts/cron_orphans.py` | scheduled jobs that point at paths which no longer exist — they fail silently forever |
 
-The scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`). CI runs all five against `tests/fixture/` on every pull request, and asserts they write nothing.
+## Further follow-ups
+
+Review is half the job; these cover follow-ups an audit usually produces that the material above does not.
+
+- `docs/secret-sweep.md` — find credentials stored as plaintext anywhere in the state you maintain (skills, scripts, references, compiled caches, backups); replace them with references to a real store, verify none remain, and rotate anything that was ever committed or shared. Helper: `scripts/scan-stored-secrets.py` — read-only, masks every value, exit code 1 on findings, 3 when a path could not be read.
+- `docs/health-checks.md` — a periodic check that stays quiet while everything is fine and cannot silently die itself: which failure classes to cover, probe design, the re-alert cadence, and testing the alert path end to end.
+- `docs/retirement-records.md` — retire things so they stay retired: keep an explicit record of removals, treat discovery as reachability rather than authority, scope "never drop a member" rules with an operator exception, and verify the re-adder does not bring them back.
+
+The scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`). CI runs the audit scripts against `tests/fixture/` on every pull request, and asserts they write nothing.
 
 ```bash
 python3 scripts/surface_audit.py --profile ~/.hermes
