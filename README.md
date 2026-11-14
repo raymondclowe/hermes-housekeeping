@@ -24,3 +24,11 @@ Review the materials for:
 Base findings on the materials you actually reviewed. Refer to the relevant file, profile, skill, or entry so each recommendation can be checked. Clearly distinguish observations from assumptions, and mention any sources you could not access.
 
 Do not change, delete, combine, or rewrite anything during the audit. Present findings and recommendations only. Ask for approval before making any edit, and ask separately before each individual edit; approval for one edit does not authorize another.
+
+## Further follow-ups
+
+Review is half the job; these cover follow-ups an audit usually produces that the material above does not.
+
+- `docs/secret-sweep.md` — find credentials stored as plaintext anywhere in the state you maintain (skills, scripts, references, compiled caches, backups); replace them with references to a real store, verify none remain, and rotate anything that was ever committed or shared. Helper: `scripts/scan-stored-secrets.py` — read-only, masks every value, exit code 1 on findings.
+- `docs/health-checks.md` — a periodic check that stays quiet while everything is fine and cannot silently die itself: which failure classes to cover, probe design, the re-alert cadence, and testing the alert path end to end.
+- `docs/retirement-records.md` — retire things so they stay retired: keep an explicit record of removals, treat discovery as reachability rather than authority, scope "never drop a member" rules with an operator exception, and verify the re-adder does not bring them back.
