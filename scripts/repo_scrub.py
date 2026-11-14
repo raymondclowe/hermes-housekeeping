@@ -24,7 +24,11 @@ import os
 import re
 import sys
 
-SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", "target"}
+# Dependency and VCS trees are skipped outright. Build output is NOT skipped: a .env or a
+# key copied into dist/ is still published, so those directories are reported as artefacts
+# and their contents are scanned like any other text.
+PRUNE_DIRS = {".git", "node_modules", ".venv", "venv", "target"}
+ARTEFACT_DIRS = {"dist", "build", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 
 ARTEFACT_NAMES = {
     ".DS_Store": "macOS metadata",
@@ -46,33 +50,36 @@ HIGH_PATTERNS = [
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "cloud access key id"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "source-control token"),
     (re.compile(r"\bsk-[A-Za-z0-9]{24,}\b"), "API secret key"),
-    (re.compile(r"(?i)\b(api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]?[A-Za-z0-9/+_\-]{20,}"), "credential-shaped assignment"),
+    (re.compile(r"(?i)(?<![A-Za-z0-9_])[\"']?\b(api[_-]?key|secret|token|password)\b[\"']?\s*[:=]\s*['\"]?[A-Za-z0-9/+_\-]{20,}"), "credential-shaped assignment"),
 ]
+EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
+
 MEDIUM_PATTERNS = [
-    (re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"), "email address"),
+    (EMAIL_RE, "email address"),
     (re.compile(r"/home/[a-z0-9._\-]+/"), "home directory path with username"),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "IP address"),
     (re.compile(r"\b[A-Fa-f0-9]{40,}\b"), "long hex blob"),
 ]
 
-TEXT_SUFFIXES = {".md", ".txt", ".py", ".sh", ".js", ".ts", ".json", ".yaml", ".yml", ".toml",
-                 ".ini", ".cfg", ".html", ".css", ".sql", ".rb", ".go", ".rs", ".java", ""}
 LARGE_BYTES = 1_000_000
 
 # Reserved documentation domains (RFC 2606) exist to be written down. An address in one of
 # them is an example, not personal data, so it must not raise a finding.
 EXAMPLE_DOMAIN_RE = re.compile(
-    r"@(?:example\.(?:com|org|net)|[A-Za-z0-9.\-]+\.(?:example|test|invalid))\b", re.I)
+    r"@(?:example\.(?:com|org|net)|[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.(?:example|test|invalid))"
+    r"(?![\w.\-])$", re.I)
 
 
 def scan(root: str):
     findings = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for d in dirnames:
+            if d in ARTEFACT_DIRS:
+                findings.append({"path": os.path.relpath(os.path.join(dirpath, d), root), "line": 0,
+                                 "severity": "low", "kind": "build artefact",
+                                 "detail": f"{d} directory"})
+        dirnames[:] = [d for d in dirnames if d not in PRUNE_DIRS]
         rel_dir = os.path.relpath(dirpath, root)
-        if "__pycache__" in dirpath.split(os.sep):
-            findings.append({"path": rel_dir, "line": 0, "severity": "low",
-                             "kind": "build artefact", "detail": "__pycache__ directory"})
         for name in filenames:
             path = os.path.join(dirpath, name)
             rel = os.path.relpath(path, root)
@@ -93,9 +100,13 @@ def scan(root: str):
                 findings.append({"path": rel, "line": 0, "severity": "low",
                                  "kind": "large file", "detail": f"{size} bytes"})
 
-            if os.path.splitext(name)[1] not in TEXT_SUFFIXES:
-                continue
+            # The suffix cannot decide what is text: private.pem, server.key and .log files
+            # all carry credentials. Read the bytes and let a NUL byte mark it binary.
             try:
+                with open(path, "rb") as fh:
+                    head = fh.read(4096)
+                if b"\x00" in head:
+                    continue
                 text = open(path, encoding="utf-8", errors="strict").read()
             except (OSError, UnicodeDecodeError):
                 continue
@@ -105,11 +116,15 @@ def scan(root: str):
                         findings.append({"path": rel, "line": n, "severity": "high",
                                          "kind": label, "detail": line.strip()[:120]})
                 for rx, label in MEDIUM_PATTERNS:
-                    if rx.search(line):
-                        if label == "email address" and EXAMPLE_DOMAIN_RE.search(line):
-                            continue
-                        findings.append({"path": rel, "line": n, "severity": "medium",
-                                         "kind": label, "detail": line.strip()[:120]})
+                    matches = rx.findall(line)
+                    if not matches:
+                        continue
+                    # One reserved address on the line must not hide a real one beside it,
+                    # and example.com.evil.org is not a reserved domain.
+                    if label == "email address" and all(EXAMPLE_DOMAIN_RE.search(m) for m in matches):
+                        continue
+                    findings.append({"path": rel, "line": n, "severity": "medium",
+                                     "kind": label, "detail": line.strip()[:120]})
     return findings
 
 
