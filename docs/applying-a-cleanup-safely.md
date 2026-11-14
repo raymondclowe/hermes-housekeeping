@@ -7,10 +7,18 @@ service undoes the cleanup silently.
 
 ## Order of operations
 
-1. **Freeze the current state.** `tar czf backups/housekeeping-YYYYMMDD-HHMMSS.tgz`
-   of the always-loaded files (SOUL, memory, user profile). If skills are a git
-   repo, commit a baseline first — then every later step is diffable and
-   revertible by hash.
+1. **Freeze the current state.** Archive the always-loaded files, and require the
+   archive to be readable before touching anything:
+
+   ```bash
+   stamp=$(date +%Y%m%d-%H%M%S); mkdir -p backups
+   tar czf "backups/housekeeping-$stamp.tgz" \
+       SOUL.md memories/MEMORY.md memories/USER.md config.yaml
+   tar tzf "backups/housekeeping-$stamp.tgz" >/dev/null || { echo "backup failed - stop"; exit 1; }
+   ```
+
+   If the skills directory is a git repo, commit a baseline too — then every later
+   step is diffable and revertible by hash.
 2. **Measure before editing.** Sizes, entry counts, and — if there are caps —
    headroom. A cap is checked against the *final* state, so removals and
    additions belong in one batch, not two calls.

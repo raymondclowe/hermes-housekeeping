@@ -33,15 +33,39 @@ def entries(text: str) -> list[str]:
 
 
 def frontmatter(text: str) -> dict[str, str]:
-    """Minimal YAML frontmatter reader: top-level `key: value` lines only."""
+    """Minimal YAML frontmatter reader: top-level `key: value`, block scalars included."""
     out: dict[str, str] = {}
     if not text.startswith("---"):
         return out
     body = text.split("---", 2)[1]
-    for line in body.splitlines():
-        m = re.match(r"^([A-Za-z_][\w-]*):\s*(.*)$", line)
-        if m:
-            out[m.group(1)] = m.group(2).strip().strip("'\"")
+    lines = body.splitlines()
+    i = 0
+    while i < len(lines):
+        m = re.match(r"^([A-Za-z_][\w-]*):\s*(.*)$", lines[i])
+        if not m:
+            i += 1
+            continue
+        key, raw = m.group(1), m.group(2).strip()
+        if re.match(r"^[>|][-+]?$", raw):
+            # block scalar: the value is the following more-indented run of lines.
+            # Without this the indicator itself is stored, and every block
+            # description normalises to "" and looks like a duplicate of the next.
+            block: list[str] = []
+            i += 1
+            while i < len(lines):
+                nxt = lines[i]
+                if not nxt.strip():
+                    block.append("")
+                    i += 1
+                    continue
+                if not re.match(r"^\s+", nxt):
+                    break
+                block.append(nxt.strip())
+                i += 1
+            out[key] = " ".join(b for b in block if b)
+            continue
+        out[key] = raw.strip("'\"")
+        i += 1
     return out
 
 

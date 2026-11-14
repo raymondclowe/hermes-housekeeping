@@ -40,7 +40,7 @@ Everything else is a scoping defect.
 |---|---|---|
 | "the answer opens the reply" vs "state your assumptions before the number" | phase | the assumption block goes *after* the verdict, and only for a derived figure that rests on one |
 | "one question per message" vs "pick the default, don't ask" | population | the one-question rule governs a queue of dependent decisions; equivalent options are picked, not asked |
-| "never delete data" vs a cleanup procedure that deletes | actor | the ban is on *proposing* deletion as a remedy; a procedure's own cleanup runs as written |
+| "never delete data" vs a cleanup procedure that deletes | actor | the ban is on *proposing* deletion as a remedy; the procedure's own cleanup step additionally needs explicit approval for that step, so the scoping clause narrows who may initiate deletion, never whether it is approved |
 | "never simulate" vs "verify before claiming done" | artefact | the ban is on simulation used as *evidence*; exercising the code is required |
 | "ingest every source" vs "cut everything that is not the point" | artefact | one is the input, the other the output; name the ingested count so the cut is visible |
 | "don't argue with the design" vs "disagree once, with evidence" | phase | no argument from reasoning alone; a fresh measurement that contradicts it is stated once |

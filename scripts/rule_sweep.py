@@ -10,16 +10,18 @@ Usage:
     python3 rule_sweep.py --file phrases.txt
 
 Searches (when present): SOUL.md, memories/*.md, config.yaml, cron/jobs.json,
-hooks/*.py, hooks/*.json, skills/**/*.md — including archived skills, which are
-reported separately because a retired skill's text is still quoted by agents.
+hooks/*, skills/**/*.md — including archived skills, which are reported
+separately because a retired skill's text is still quoted by agents.
 
-Exit code 0 always.
+Exit codes: 0 = sweep completed, 2 = the profile path is missing or not a
+directory (inspecting nothing must not look like finding nothing).
 """
 from __future__ import annotations
 
 import argparse
 import os
 import re
+import sys
 from pathlib import Path
 
 CONFIG_GLOBS = ["SOUL.md", "memories/*.md", "config.yaml", "cron/jobs.json", "hooks/*"]
@@ -40,6 +42,17 @@ def hits(path: Path, rx: re.Pattern[str]) -> list[int]:
     return out
 
 
+def show_lines(path: Path, lines: list[int], rx: re.Pattern[str], limit: int) -> None:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return
+    for ln in lines[:limit]:
+        txt = text[ln - 1].strip() if ln - 1 < len(text) else ""
+        mark = " [tombstone]" if TOMBSTONE.search(txt) else ""
+        print(f"            {ln}: {txt[:110]}{mark}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("phrases", nargs="*", help="one or more phrases to sweep for")
@@ -48,6 +61,11 @@ def main() -> int:
     ap.add_argument("--show", type=int, default=3, help="example lines to print per surface")
     args = ap.parse_args()
     root = Path(args.profile).expanduser()
+
+    if not root.is_dir():
+        print(f"profile not found or not a directory: {root}", file=sys.stderr)
+        print("nothing was searched", file=sys.stderr)
+        return 2
 
     phrases = list(args.phrases)
     if args.file:
@@ -67,25 +85,28 @@ def main() -> int:
                 if not lines:
                     continue
                 total += len(lines)
-                rel = p.relative_to(root)
-                print(f"  {len(lines):3d}  {rel}")
-                for ln in lines[: args.show]:
-                    txt = p.read_text(errors="replace").splitlines()[ln - 1].strip()
-                    mark = " [tombstone]" if TOMBSTONE.search(txt) else ""
-                    print(f"       {ln}: {txt[:110]}{mark}")
-        # skills, live and archived apart
-        for label, paths in (
-            ("live", [p for g in SKILL_GLOBS for p in root.glob(g) if ".archive" not in p.parts]),
-            ("archived", [p for g in SKILL_GLOBS for p in root.glob(g) if ".archive" in p.parts]),
+                print(f"  {len(lines):3d}  {p.relative_to(root)}")
+                show_lines(p, lines, rx, args.show)
+
+        # skills: live and archived kept apart, every file named
+        files = sorted({p for g in SKILL_GLOBS for p in root.glob(g)})
+        for label, group in (
+            ("live", [p for p in files if ".archive" not in p.parts]),
+            ("archived", [p for p in files if ".archive" in p.parts]),
         ):
-            n = 0
-            for p in paths:
-                lines = hits(p, rx)
-                if lines:
-                    n += 1
-                    total += len(lines)
-            if n:
-                print(f"  {n:3d} skill files ({label})")
+            found = [(p, hits(p, rx)) for p in group]
+            found = [(p, ls) for p, ls in found if ls]
+            if not found:
+                continue
+            total += sum(len(ls) for _p, ls in found)
+            print(f"  {len(found):3d} skill file(s), {label}")
+            listing = found if args.show <= 0 else found[: max(args.show, 3)]
+            for p, ls in listing:
+                print(f"       {len(ls):3d}  {p.relative_to(root)}")
+                show_lines(p, ls, rx, max(args.show, 1))
+            if len(found) > len(listing):
+                print(f"       ... {len(found) - len(listing)} more skill file(s)")
+
         print(f"  total hits: {total}")
         if total == 0:
             print("  (phrase is stated nowhere - either it is new, or it was removed cleanly)")
