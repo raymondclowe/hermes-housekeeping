@@ -1,0 +1,61 @@
+name: audit-tools
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile check
+        run: python3 -m py_compile scripts/*.py
+
+      - name: surface_audit finds the fixture's duplicate descriptions
+        run: |
+          out=$(python3 scripts/surface_audit.py --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "SKILLS: 2 live"
+          echo "$out" | grep -q "DUPLICATE DESCRIPTIONS: 1"
+          echo "$out" | grep -q "demo-a, demo-b"
+
+      - name: rule_sweep finds a phrase on the always-loaded surface
+        run: |
+          out=$(python3 scripts/rule_sweep.py "the answer opens the reply" --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "SOUL.md"
+
+      - name: rule_sweep reports a phrase that exists nowhere
+        run: |
+          out=$(python3 scripts/rule_sweep.py "phrase that is absent" --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "stated nowhere"
+
+      - name: cron_orphans reports the missing path
+        run: |
+          out=$(python3 scripts/cron_orphans.py --crontab-file tests/fixture/crontab.txt)
+          echo "$out"
+          echo "$out" | grep -q "missing_job.py"
+
+      - name: memory_trim reports the near-duplicate pair
+        run: |
+          out=$(python3 scripts/memory_trim.py --file tests/fixture/profile/memories/MEMORY.md)
+          echo "$out"
+          echo "$out" | grep -q "NEAR-DUPLICATES"
+          echo "$out" | grep -q "STALE MARKERS"
+
+      - name: scripts are read-only (no file writes)
+        run: |
+          before=$(find tests/fixture -type f -exec sha256sum {} + | sort | sha256sum)
+          python3 scripts/surface_audit.py --profile tests/fixture/profile > /dev/null
+          python3 scripts/rule_sweep.py "verify" --profile tests/fixture/profile > /dev/null
+          python3 scripts/memory_trim.py --file tests/fixture/profile/memories/MEMORY.md > /dev/null
+          after=$(find tests/fixture -type f -exec sha256sum {} + | sort | sha256sum)
+          test "$before" = "$after"

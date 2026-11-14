@@ -28,17 +28,21 @@ the diagnosis is usually right and the application is what breaks.
 
 | File | Use it when |
 |---|---|
+| `docs/where-a-rule-lives.md` | deciding which surface a new rule belongs on; the three-way split (behaviour, procedure, fact) and the cap mechanics |
+| `docs/audit-report-template.md` | writing the audit up: findings with provenance, conflicts table, what was not checked, what was left alone |
 | `docs/reconciling-conflicting-rules.md` | two rules look contradictory; gives the four missing-scope axes, a precedence sentence, worked examples and the anti-patterns |
 | `docs/applying-a-cleanup-safely.md` | you are about to edit an always-loaded surface, retire a rule, or stop a service; gives the ordering, the verification table and the restore requirements |
 | `scripts/surface_audit.py` | first pass: sizes and entry counts per surface, skills over the loader limit, duplicate skill descriptions |
 | `scripts/rule_sweep.py` | before editing any standing rule: every surface that carries it, live and archived, with tombstones marked |
+| `scripts/memory_trim.py` | near-duplicate entries, stale markers, and facts sitting in a capped behavioural file |
 | `scripts/cron_orphans.py` | scheduled jobs that point at paths which no longer exist — they fail silently forever |
 
-All three scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`).
+The scripts are read-only, standard-library only, and take `--profile` (default `$HERMES_HOME` or `~/.hermes`). CI runs all four against `tests/fixture/` on every pull request, and asserts they write nothing.
 
 ```bash
 python3 scripts/surface_audit.py --profile ~/.hermes
 python3 scripts/rule_sweep.py "dry run" --profile ~/.hermes
+python3 scripts/memory_trim.py --file ~/.hermes/memories/MEMORY.md
 python3 scripts/cron_orphans.py
 ```
 

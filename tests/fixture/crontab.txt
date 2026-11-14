@@ -1,0 +1,2 @@
+# a commented line is not checked
+*/5 * * * * /home/nobody/scripts/missing_job.py --flag

@@ -110,7 +110,7 @@ def main() -> int:
     dupes = {k: v for k, v in seen.items() if len(v) > 1}
     print(f"\nDUPLICATE DESCRIPTIONS: {len(dupes)}")
     for desc, names in list(dupes.items())[:10]:
-        print(f"  {', '.join(names)}  <- {desc[:70]}")
+        print(f"  {', '.join(sorted(names))}  <- {desc[:70]}")
 
     # --- names mentioned by no other file (orphans) ------------------------
     print("\n(orphan detection is in rule_sweep.py - a rule referenced nowhere else is often dead)")
