@@ -16,7 +16,8 @@ Notes
   Review each finding before acting; do not auto-fix.
 * Live session transcripts, logs and caches are excluded by default -- scan a
   specific ``--root`` if you suspect leakage there is worth reviewing.
-* Exit status: 1 when findings exist (so a scheduler can notice), 0 when clean.
+* Exit status: 0 clean, 1 findings, 2 unusable root, 3 incomplete scan (a path
+  could not be read, so a zero-finding result does not mean the tree is clean).
 
 Usage
 -----
@@ -51,8 +52,8 @@ PATTERNS: "list[tuple[str, re.Pattern]]" = [
     ("sshpass-literal", re.compile(r"sshpass\s+-p\s+'([^']+)'")),
     ("sshpass-literal", re.compile(r'sshpass\s+-p\s+"([^"]+)"')),
     ("key/secret assignment", re.compile(
-        r"(?i)\b(?:password|passwd|passphrase|pwd|secret|api[_-]?key|apikey"
-        r"|auth[_-]?token|access[_-]?token)\s*[:=]\s*['\"]([^'\"\s]{4,})['\"]")),
+        r"(?i)(?<![A-Za-z0-9_])[\"']?(?:password|passwd|passphrase|pwd|secret|api[_-]?key|apikey"
+        r"|auth[_-]?token|access[_-]?token)[\"']?\s*[:=]\s*['\"]([^'\"\s]{4,})['\"]")),
     ("password assignment (unquoted)", re.compile(
         r"(?i)\b(?:password|passwd|passphrase)\s*=\s*([^\s'\";#]{6,})")),
     ("chat-bot-token", re.compile(r"\b(\d{8,10}:[A-Za-z0-9_-]{30,})\b")),
@@ -92,9 +93,11 @@ def default_roots() -> "list[Path]":
     return [candidates[0]]
 
 
-def walk_files(roots):
+def walk_files(roots, errors):
     for root in roots:
-        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        for dirpath, dirnames, filenames in os.walk(
+            root, followlinks=False, onerror=errors.append
+        ):
             dirnames[:] = [
                 d for d in dirnames
                 if d not in SKIP_DIRS and "venv" not in d.lower()
@@ -103,13 +106,84 @@ def walk_files(roots):
                 yield Path(dirpath) / name
 
 
-def scan_file(path: Path, max_bytes: int) -> "list[tuple[int, str, str]]":
-    """Return (line, label, masked_value) tuples; line 0 means a byte scan."""
+BACKUP_SUFFIXES = (".bak", ".backup", ".old", ".orig", ".save", ".swp", "~")
+ARCHIVE_SUFFIXES = (".zip", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz")
+
+
+def effective_suffix(name: str) -> str:
+    """Suffix after stripping backup markers: `settings.py.bak` behaves like `.py`.
+
+    Backups are part of the advertised scope, and the copy taken before a cleanup
+    is exactly where the old credential survives.
+    """
+    base = name
+    while True:
+        for marker in BACKUP_SUFFIXES:
+            if base.endswith(marker) and len(base) > len(marker):
+                base = base[: -len(marker)]
+                break
+        else:
+            break
+    return Path(base).suffix.lower()
+
+
+def scan_text(text: str) -> "list[tuple[int, str, str]]":
+    findings = []
+    for label, rx in PATTERNS:
+        for match in rx.finditer(text):
+            value = match.group(1)
+            if value.startswith("$") or re.search(
+                r"os\.environ|getenv|secrets\.|\bENV\[|^[A-Za-z_]+\(|\b[A-Za-z_]+\(", value
+            ):
+                continue  # a reference to a store, not a stored value: nothing to clean
+            line = text.count("\n", 0, match.start()) + 1
+            findings.append((line, label, mask(value)))
+    return findings
+
+
+def scan_archive(path: Path, max_bytes: int, errors) -> "list[tuple[int, str, str]]":
+    """Scan archive members with a bounded reader; never extract to disk."""
+    findings = []
+    try:
+        import zipfile
+
+        if zipfile.is_zipfile(path):
+            with zipfile.ZipFile(path) as archive:
+                for info in archive.infolist():
+                    if info.is_dir() or info.file_size > max_bytes:
+                        continue
+                    with archive.open(info) as handle:
+                        text = handle.read(max_bytes).decode("utf-8", "replace")
+                    findings += [(0, label, value) for _l, label, value in scan_text(text)]
+            return findings
+
+        import tarfile
+
+        if tarfile.is_tarfile(path):
+            with tarfile.open(path) as archive:
+                for member in archive.getmembers():
+                    if not member.isfile() or member.size > max_bytes:
+                        continue
+                    handle = archive.extractfile(member)
+                    if handle is None:
+                        continue
+                    text = handle.read(max_bytes).decode("utf-8", "replace")
+                    findings += [(0, label, value) for _l, label, value in scan_text(text)]
+    except (OSError, ImportError, ValueError, EOFError) as exc:
+        errors.append(f"{path}: archive not readable ({exc})")
+    except Exception as exc:  # zipfile/tarfile raise their own error types
+        errors.append(f"{path}: archive not readable ({type(exc).__name__}: {exc})")
+    return findings
+
+
+def scan_file(path: Path, max_bytes: int, errors) -> "list[tuple[int, str, str]]":
+    """Return (line, label, masked_value) tuples; line 0 means a byte/archive scan."""
     try:
         if path.stat().st_size > max_bytes:
             return []
         raw = path.read_bytes()
-    except OSError:
+    except OSError as exc:
+        errors.append(f"{path}: {exc.strerror or exc}")
         return []
 
     findings = []
@@ -120,18 +194,18 @@ def scan_file(path: Path, max_bytes: int) -> "list[tuple[int, str, str]]":
                 findings.append((0, label, mask(value)))
         return findings
 
-    if path.suffix.lower() not in TEXT_EXTS and path.name != ".env":
-        return findings
+    lowered = path.name.lower()
+    if lowered.endswith(ARCHIVE_SUFFIXES):
+        return scan_archive(path, max_bytes, errors)
+
+    suffix = path.suffix.lower()
+    if suffix not in TEXT_EXTS and effective_suffix(path.name) not in TEXT_EXTS and path.name != ".env":
+        # `.env.bak` and friends are covered by effective_suffix
+        if effective_suffix(path.name) != ".env" and not lowered.startswith(".env"):
+            return findings
 
     text = raw.decode("utf-8", "replace")
-    for label, rx in PATTERNS:
-        for match in rx.finditer(text):
-            value = match.group(1)
-            if value.startswith("$"):
-                continue  # shell variable reference, not a stored secret
-            line = text.count("\n", 0, match.start()) + 1
-            findings.append((line, label, mask(value)))
-    return findings
+    return scan_text(text)
 
 
 def normalize_root(raw) -> Path:
@@ -168,20 +242,36 @@ def main(argv=None) -> int:
 
     seen = set()
     total = 0
-    for path in walk_files(roots):
-        for line, label, value in scan_file(path, args.max_bytes):
+    errors = []
+    for path in walk_files(roots, errors):
+        for line, label, value in scan_file(path, args.max_bytes, errors):
             key = (str(path), line, label, value)
             if key in seen:
                 continue
             seen.add(key)
             total += 1
-            where = str(path) + (f":{line}" if line else " (compiled cache)")
+            if line:
+                where = f"{path}:{line}"
+            elif str(path).lower().endswith(ARCHIVE_SUFFIXES):
+                where = f"{path} (archive member)"
+            else:
+                where = f"{path} (compiled cache)"
             print(f"{where}: {label}: {value}")
 
     print(f"\n{total} finding(s) across {len(roots)} root(s).")
     if total and not args.quiet:
         print("Replace each with a reference to a real store; rescan until zero;")
         print("rotate any value that was ever committed, pushed or shared.")
+
+    if errors:
+        print(f"\nINCOMPLETE SCAN: {len(errors)} path(s) could not be read:", file=sys.stderr)
+        for err in errors[:20]:
+            print(f"  {err}", file=sys.stderr)
+        if len(errors) > 20:
+            print(f"  ... {len(errors) - 20} more", file=sys.stderr)
+        print("A zero-finding result for this run does not mean the tree is clean.", file=sys.stderr)
+        return 1 if total else 3
+
     return 1 if total else 0
 
 
