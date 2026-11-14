@@ -33,6 +33,17 @@ Use these instructions to review Hermes's own persistent context and configurati
 | `scripts/cron_orphans.py` | Scheduled jobs pointing at paths that no longer exist; an unreadable crontab is reported as a failed scan, not a clean one. |
 | `scripts/scan-stored-secrets.py` | The secret sweep: masks every value, reads backups and archive members, exits 3 when a path could not be read. |
 | `tests/fixture/`, `.github/workflows/audit-tools.yml` | The fixture the audit scripts are tested against, and the CI that runs them. |
+| `docs/verification-first.md` | Checking the claims an audit makes, and why a zero exit status proves nothing. |
+| `docs/scoping-conflicts.md` | Reconciling rules, spotting dead references, choosing the layer. |
+| `docs/memory-budget.md` | Size arithmetic, pointers over values, safe compaction. |
+| `docs/supersession.md` | Dated decisions that reverse older ones. |
+| `docs/time-windows.md` | Testing scheduled work and vendor pricing windows. |
+| `docs/contributing.md` | How a lesson comes back to this repo: fork, scope, template. |
+| `checklists/preflight.md` | The one-page checklist. |
+| `scripts/memory_budget.py` | Entries, characters, headroom, duplicates, volatile values. |
+| `scripts/skill_overlap.py` | Clusters skills by name and description. |
+| `scripts/config_readback.py` | Parses config the way the code does and asserts expected values. |
+| `scripts/ruling_index.py` | Missing dates and unmarked supersessions in a decision log. |
 
 ## How often
 
@@ -63,9 +74,63 @@ Do not change, delete, combine, or rewrite anything during the audit. Present fi
 
 **A file that cannot exist is a finding.** If a store is disabled in configuration, or a skill is filtered out by a platform declaration, say so explicitly — an audit that reports "the file is empty" has missed the actual defect, and the same lesson will be written again by an agent that could not see the original.
 
+## What a text-only audit gets wrong
+
+Reading the files is necessary and not sufficient. The most damaging findings in a real
+check-up were facts that *looked* fine in a file and were wrong in the system:
+
+- a memory entry naming a count that had changed since it was written;
+- an entry declaring a credential dead while the credential worked;
+- an entry naming an agent, file or path that no longer exists;
+- a "conflicting" pair where one side was simply a later decision.
+
+So the audit has two passes. Pass one reads the text. Pass two **checks the claims that can be
+checked** and labels each one verified, stale, or unverifiable. A finding is never reported as
+fact until it survives pass two. See `docs/verification-first.md`.
+
+## Where each fix belongs
+
+A correction filed in the wrong layer drifts back within weeks. Report the target layer with
+every recommendation:
+
+| layer | holds | lifetime |
+|---|---|---|
+| persona / system prompt | identity, priorities, standing rules | long |
+| memory | compiled facts and pointers | long, hard size cap |
+| user profile | who the human is, how they want to be spoken to | long |
+| skills | procedures, commands, pitfalls | medium |
+| decision log | dated rulings and their supersessions | permanent, append-only |
+
+See `docs/scoping-conflicts.md` §3 for how to choose the layer.
+
 ## After the audit
 
 The audit's value comes from changing nothing; the remediation's value comes from doing the changes in a safe order. When the report is approved, continue with `remediation.md` — one approved edit at a time, verification included, and an honest note that the editing session keeps the old state in context until the next session starts.
+
+## After approval: how to make an edit without making a mess
+
+1. Back up **before** the edit, and name the file for the state it holds (a copy taken after the
+   edit is a snapshot, not a backup).
+2. Make one edit at a time; re-read the file afterwards.
+3. For anything the code reads, verify by parsing it the way the code parses it — not by reading
+   the diff. `docs/verification-first.md`.
+4. State what you tested and what you did not. "Applied" is not "working".
+5. Never report a count you did not measure.
+
+## Contributing back: the loop
+
+An audit that only edits the agent's own files wastes what it learned. **After every housekeeping
+run, the reusable part of the lesson comes back here as a fork and a pull request.**
+
+- Contribute when the lesson would hold for a *different* agent, machine and file set: a check you
+  had to invent, a failure mode and how you caught it, a procedure that needed an order, a scope
+  condition that reconciled two rules.
+- Do not contribute one-off fixes, restatements, or anything already covered.
+- This repo is public: no names, company or site names, hostnames, addresses, credentials or real
+  inventory counts. Rewrite the example rather than redacting it.
+- One topic per pull request, and use the template in `.github/`.
+
+Mechanics and the pre-flight list: `docs/contributing.md`.
 
 ## House rules this repo is built around
 
