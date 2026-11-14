@@ -1,0 +1,5 @@
+{
+  "demo-a": {"use_count": 190, "last_used_at": "2026-02-01T00:00:00+00:00", "state": "active"},
+  "demo-b": {"use_count": 0, "last_used_at": null, "state": "active"},
+  "old-thing": {"use_count": 25, "last_used_at": "2025-06-01T00:00:00+00:00", "state": "archived"}
+}

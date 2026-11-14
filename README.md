@@ -2,9 +2,56 @@
 
 ## Human read this
 
+Hermes works badly the first week as it has not learnt you, great the second week as now it knows you and your processes, then after a while it peaks and degrades.
+
+It needs a housekeeping run to remove crud.  This is it.
+
 Point your hermes at this repo.
 
 Use these instructions to review Hermes's own persistent context and configuration for opportunities to make it clearer, smaller, and more consistent.
+
+## What is in here
+
+| File | Use it when |
+|---|---|
+| `README.md` (this file) | You want the audit: read your own state, report, change nothing. |
+| `remediation.md` | The audit is approved and you are about to change things. Order of work, per-edit approval, verification that the change actually loaded. |
+| `scope-axes.md` | The audit found "conflicting" rules. Nine axes that explain why they only look contradictory, and the scope clause that reconciles each. |
+| `config-checks.md` | You want the configuration half: capabilities that make a written rule impossible to follow, budgets, retention, hidden skills. |
+| `scripts/checkup.sh` | Run first, on any host, before every pass. Read-only: prints the numbers the report needs. |
+| `docs/applying-a-cleanup-safely.md` | You are about to edit an always-loaded surface, retire a rule, or stop a service: the ordering, the verification table, the restore requirements. |
+| `docs/where-a-rule-lives.md` | Deciding which surface a new rule belongs on: behaviour vs procedure vs fact, and the cap mechanics. |
+| `docs/audit-report-template.md` | Writing the audit up: findings with provenance, a conflicts table, what was not checked, what was left alone. |
+| `docs/reconciling-conflicting-rules.md` | The longer treatment of scope: four missing-scope axes, a precedence sentence, worked examples. |
+| `docs/secret-sweep.md` | Credentials stored as plaintext in the state you maintain: find, replace with a store reference, verify, rotate. |
+| `docs/health-checks.md` | A periodic check that stays quiet while fine and cannot silently die itself. |
+| `docs/retirement-records.md` | Retire things so they stay retired: a record of removals, reachability over authority, verifying the re-adder. |
+| `scripts/surface_audit.py` | First pass: char and entry counts per surface, skills over the loader limit, duplicate skill descriptions. |
+| `scripts/rule_sweep.py` | Before editing any standing rule: every surface carrying the phrase, live and archived, with tombstones marked. |
+| `scripts/memory_trim.py` | Near-duplicate entries, stale markers, and facts sitting in a capped behavioural file. |
+| `scripts/skill_archive_guard.py` | Before a bulk archive: refuses protected and in-use skills; `--audit-archive` finds past mistakes. |
+| `scripts/cron_orphans.py` | Scheduled jobs pointing at paths that no longer exist; an unreadable crontab is reported as a failed scan, not a clean one. |
+| `scripts/scan-stored-secrets.py` | The secret sweep: masks every value, reads backups and archive members, exits 3 when a path could not be read. |
+| `tests/fixture/`, `.github/workflows/audit-tools.yml` | The fixture the audit scripts are tested against, and the CI that runs them. |
+| `docs/verification-first.md` | Checking the claims an audit makes, and why a zero exit status proves nothing. |
+| `docs/scoping-conflicts.md` | Reconciling rules, spotting dead references, choosing the layer. |
+| `docs/memory-budget.md` | Size arithmetic, pointers over values, safe compaction. |
+| `docs/supersession.md` | Dated decisions that reverse older ones. |
+| `docs/time-windows.md` | Testing scheduled work and vendor pricing windows. |
+| `docs/contributing.md` | How a lesson comes back to this repo: fork, scope, template. |
+| `checklists/preflight.md` | The one-page checklist. |
+| `scripts/memory_budget.py` | Entries, characters, headroom, duplicates, volatile values. |
+| `scripts/skill_overlap.py` | Clusters skills by name and description. |
+| `scripts/config_readback.py` | Parses config the way the code does and asserts expected values. |
+| `scripts/ruling_index.py` | Missing dates and unmarked supersessions in a decision log. |
+
+## How often
+
+- **First fortnight: weekly.** The state grows fastest while it is still learning.
+- **Then monthly**, or on any of these symptoms: the memory store is near its character limit; the skill count only ever rises; the same fact keeps being re-derived by hand; two skills answer the same request; a rule gets quoted that the configuration no longer supports.
+- **Before and after any configuration change**, because rules silently outlive the settings they were written for.
+
+The script is the cheap trigger: run `scripts/checkup.sh` and look at the percentages and counts, not the prose.
 
 ## Self-audit instructions: Hermes read this
 
@@ -21,7 +68,11 @@ Base findings on the materials you actually reviewed. Refer to the relevant file
 
 Do not change, delete, combine, or rewrite anything during the audit. Present findings and recommendations only. Ask for approval before making any edit, and ask separately before each individual edit; approval for one edit does not authorize another.
 
----
+## Two rules that make the audit sharper
+
+**Measure, don't infer.** Absolute numbers beat adjectives: characters used against the configured limit, entries per store, skills on disk against skills listed, sessions retained against sessions searchable. An auditor who reports "memory feels full" is guessing; one who reports "71% of a 2200-character budget, 6 entries, one of them a duplicate of a rule in the rules file" is not.
+
+**A file that cannot exist is a finding.** If a store is disabled in configuration, or a skill is filtered out by a platform declaration, say so explicitly — an audit that reports "the file is empty" has missed the actual defect, and the same lesson will be written again by an agent that could not see the original.
 
 ## What a text-only audit gets wrong
 
@@ -52,6 +103,10 @@ every recommendation:
 
 See `docs/scoping-conflicts.md` §3 for how to choose the layer.
 
+## After the audit
+
+The audit's value comes from changing nothing; the remediation's value comes from doing the changes in a safe order. When the report is approved, continue with `remediation.md` — one approved edit at a time, verification included, and an honest note that the editing session keeps the old state in context until the next session starts.
+
 ## After approval: how to make an edit without making a mess
 
 1. Back up **before** the edit, and name the file for the state it holds (a copy taken after the
@@ -77,16 +132,16 @@ run, the reusable part of the lesson comes back here as a fork and a pull reques
 
 Mechanics and the pre-flight list: `docs/contributing.md`.
 
-## Files
+## House rules this repo is built around
 
-- `docs/verification-first.md` — checking claims, and why a zero exit status proves nothing
-- `docs/scoping-conflicts.md` — reconciling rules, spotting dead references, choosing the layer
-- `docs/memory-budget.md` — size arithmetic, pointers over values, safe compaction
-- `docs/supersession.md` — dated decisions that reverse older ones
-- `docs/time-windows.md` — testing scheduled work and vendor pricing windows
-- `docs/contributing.md` — how a lesson comes back to this repo (fork, scope, template)
-- `checklists/preflight.md` — the one-page checklist
-- `scripts/memory_budget.py` — entries, characters, headroom, duplicates, volatile values
-- `scripts/skill_overlap.py` — clusters skills by name and description
-- `scripts/config_readback.py` — parse config the way the code does and assert expected values
-- `scripts/ruling_index.py` — missing dates and unmarked supersessions in a decision log
+- **Stop and archive; never delete.** A retirement that cannot be reversed is not finished.
+- **A finding without a file and line is a rumour.** Quote the source.
+- **An audit changes nothing.** Recommendations first, and one approval per edit.
+- **A same-filesystem move frees no space.** Say so rather than implying a cleanup saved disk.
+- **A rule usually exists in three places.** Retiring it in one of them changes nothing.
+- **Verify by exercising, then report what the exercise returned.** A tool call that returned success is not evidence the thing works.
+- **In use beats unused.** A bulk archive needs evidence of use, not a name that matches the thing being retired.
+
+## Contributing
+
+Anything here should stay generic: no hostnames, no account names, no credentials, and no personal data from any one installation. Examples are described by shape ("the answer opens the reply"), not by quoting a private profile. Run the scripts against `tests/fixture/` before opening a pull request; CI runs the same checks.
