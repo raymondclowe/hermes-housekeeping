@@ -10,7 +10,7 @@ Point your hermes at this repo.
 
 Use these instructions to review Hermes's own persistent context and configuration for opportunities to make it clearer, smaller, and more consistent.
 
-## What is in here
+## What is in here (Human, you don't have to read this unless you want to)
 
 | File | Use it when |
 |---|---|
