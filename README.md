@@ -107,6 +107,14 @@ See `docs/scoping-conflicts.md` §3 for how to choose the layer.
 
 The audit's value comes from changing nothing; the remediation's value comes from doing the changes in a safe order. When the report is approved, continue with `remediation.md` — one approved edit at a time, verification included, and an honest note that the editing session keeps the old state in context until the next session starts.
 
+## Presenting the results for action
+
+- Always make a complete report as a markdown file
+- Ask the user how they want to process the recommendations, there are three choices:
+- - 1. Human reads whole report, tells Hermes to do some or all or parts of recommendation
+  - 2. Hermes presents recommendations one-at-a-time to human for them to select approve/reject/skip etc from menu
+  - 3. Hermes creates an html file with a table of recommendations with checkboxes for approve/reject/skip and a "submit" button that then populates a "Paste this back to hermes" text box with the results.
+
 ## After approval: how to make an edit without making a mess
 
 1. Back up **before** the edit, and name the file for the state it holds (a copy taken after the
