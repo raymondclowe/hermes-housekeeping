@@ -2,6 +2,10 @@
 
 ## Human read this
 
+Hermes works badly the first week as it has not learnt you, great the second week as now it knows you and your processes, then after a while it peaks and degrades.
+
+It needs a housekeeping run to remove crud.  This is it.
+
 Point your hermes at this repo.
 
 Use these instructions to review Hermes's own persistent context and configuration for opportunities to make it clearer, smaller, and more consistent.
