@@ -117,6 +117,8 @@ The audit's value comes from changing nothing; the remediation's value comes fro
 4. State what you tested and what you did not. "Applied" is not "working".
 5. Never report a count you did not measure.
 
+**HERMES: Be very very careful, use your best model, use ultra reasoning, think things through step by step and make a plan before doing things. Do things the way an expert would.**
+
 ## Contributing back: the loop
 
 An audit that only edits the agent's own files wastes what it learned. **After every housekeeping
