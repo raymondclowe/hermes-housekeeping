@@ -1,0 +1,125 @@
+name: audit-tools
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile check
+        run: python3 -m py_compile scripts/*.py
+
+      - name: surface_audit finds the fixture's duplicate descriptions
+        run: |
+          out=$(python3 scripts/surface_audit.py --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "SKILLS: 4 live"
+          echo "$out" | grep -q "DUPLICATE DESCRIPTIONS: 1"
+          echo "$out" | grep -q "demo-a, demo-b"
+
+      - name: rule_sweep finds a phrase on the always-loaded surface
+        run: |
+          out=$(python3 scripts/rule_sweep.py "the answer opens the reply" --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "SOUL.md"
+
+      - name: surface_audit reads block scalar descriptions
+        run: |
+          out=$(python3 scripts/surface_audit.py --profile tests/fixture/profile)
+          echo "$out" | grep -q "DUPLICATE DESCRIPTIONS: 1"
+          if echo "$out" | grep -q "demo-c, demo-d"; then exit 1; fi
+
+      - name: rule_sweep names the skill files it matched
+        run: |
+          out=$(python3 scripts/rule_sweep.py "Body line" --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "skills/demo-a/SKILL.md"
+          echo "$out" | grep -q "total hits: 3"
+
+      - name: rule_sweep refuses a missing profile
+        run: |
+          set +e
+          out=$(python3 scripts/rule_sweep.py "x" --profile /nonexistent-profile 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 2
+
+      - name: rule_sweep reports a phrase that exists nowhere
+        run: |
+          out=$(python3 scripts/rule_sweep.py "phrase that is absent" --profile tests/fixture/profile)
+          echo "$out"
+          echo "$out" | grep -q "stated nowhere"
+
+      - name: cron_orphans reports the missing path
+        run: |
+          out=$(python3 scripts/cron_orphans.py --crontab-file tests/fixture/crontab.txt)
+          echo "$out"
+          echo "$out" | grep -q "missing_job.py"
+
+      - name: cron_orphans ignores shell-created output targets
+        run: |
+          out=$(python3 scripts/cron_orphans.py --crontab-file tests/fixture/crontab.txt)
+          echo "$out"
+          if echo "$out" | grep -q "housekeeping-new.log"; then exit 1; fi
+
+      - name: cron_orphans refuses to report an unreadable crontab as clean
+        run: |
+          set +e
+          out=$(python3 scripts/cron_orphans.py --crontab-file /nonexistent.txt)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 2
+          echo "$out" | grep -q "SCAN UNAVAILABLE"
+
+      - name: memory_trim reports the near-duplicate pair
+        run: |
+          out=$(python3 scripts/memory_trim.py --file tests/fixture/profile/memories/MEMORY.md)
+          echo "$out"
+          echo "$out" | grep -q "NEAR-DUPLICATES"
+          echo "$out" | grep -q "STALE MARKERS"
+
+      - name: archive guard refuses a protected skill
+        run: |
+          set +e
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile demo-a)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 1
+          echo "$out" | grep -q "PROTECTED"
+
+      - name: archive guard clears an unused skill
+        run: |
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile --min-uses 100 demo-b)
+          echo "$out"
+          echo "$out" | grep -q "all clear"
+
+      - name: archive guard flags an archived skill that still looks live
+        run: |
+          set +e
+          out=$(python3 scripts/skill_archive_guard.py --profile tests/fixture/profile --audit-archive)
+          code=$?
+          set -e
+          echo "$out"
+          test "$code" -eq 1
+          echo "$out" | grep -q "old-thing"
+
+      - name: scripts are read-only (no file writes)
+        run: |
+          before=$(find tests/fixture -type f -exec sha256sum {} + | sort | sha256sum)
+          python3 scripts/surface_audit.py --profile tests/fixture/profile > /dev/null
+          python3 scripts/rule_sweep.py "verify" --profile tests/fixture/profile > /dev/null
+          python3 scripts/memory_trim.py --file tests/fixture/profile/memories/MEMORY.md > /dev/null
+          after=$(find tests/fixture -type f -exec sha256sum {} + | sort | sha256sum)
+          test "$before" = "$after"

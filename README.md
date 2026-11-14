@@ -19,6 +19,20 @@ Use these instructions to review Hermes's own persistent context and configurati
 | `scope-axes.md` | The audit found "conflicting" rules. Nine axes that explain why they only look contradictory, and the scope clause that reconciles each. |
 | `config-checks.md` | You want the configuration half: capabilities that make a written rule impossible to follow, budgets, retention, hidden skills. |
 | `scripts/checkup.sh` | Run first, on any host, before every pass. Read-only: prints the numbers the report needs. |
+| `docs/applying-a-cleanup-safely.md` | You are about to edit an always-loaded surface, retire a rule, or stop a service: the ordering, the verification table, the restore requirements. |
+| `docs/where-a-rule-lives.md` | Deciding which surface a new rule belongs on: behaviour vs procedure vs fact, and the cap mechanics. |
+| `docs/audit-report-template.md` | Writing the audit up: findings with provenance, a conflicts table, what was not checked, what was left alone. |
+| `docs/reconciling-conflicting-rules.md` | The longer treatment of scope: four missing-scope axes, a precedence sentence, worked examples. |
+| `docs/secret-sweep.md` | Credentials stored as plaintext in the state you maintain: find, replace with a store reference, verify, rotate. |
+| `docs/health-checks.md` | A periodic check that stays quiet while fine and cannot silently die itself. |
+| `docs/retirement-records.md` | Retire things so they stay retired: a record of removals, reachability over authority, verifying the re-adder. |
+| `scripts/surface_audit.py` | First pass: char and entry counts per surface, skills over the loader limit, duplicate skill descriptions. |
+| `scripts/rule_sweep.py` | Before editing any standing rule: every surface carrying the phrase, live and archived, with tombstones marked. |
+| `scripts/memory_trim.py` | Near-duplicate entries, stale markers, and facts sitting in a capped behavioural file. |
+| `scripts/skill_archive_guard.py` | Before a bulk archive: refuses protected and in-use skills; `--audit-archive` finds past mistakes. |
+| `scripts/cron_orphans.py` | Scheduled jobs pointing at paths that no longer exist; an unreadable crontab is reported as a failed scan, not a clean one. |
+| `scripts/scan-stored-secrets.py` | The secret sweep: masks every value, reads backups and archive members, exits 3 when a path could not be read. |
+| `tests/fixture/`, `.github/workflows/audit-tools.yml` | The fixture the audit scripts are tested against, and the CI that runs them. |
 
 ## How often
 
@@ -52,3 +66,17 @@ Do not change, delete, combine, or rewrite anything during the audit. Present fi
 ## After the audit
 
 The audit's value comes from changing nothing; the remediation's value comes from doing the changes in a safe order. When the report is approved, continue with `remediation.md` — one approved edit at a time, verification included, and an honest note that the editing session keeps the old state in context until the next session starts.
+
+## House rules this repo is built around
+
+- **Stop and archive; never delete.** A retirement that cannot be reversed is not finished.
+- **A finding without a file and line is a rumour.** Quote the source.
+- **An audit changes nothing.** Recommendations first, and one approval per edit.
+- **A same-filesystem move frees no space.** Say so rather than implying a cleanup saved disk.
+- **A rule usually exists in three places.** Retiring it in one of them changes nothing.
+- **Verify by exercising, then report what the exercise returned.** A tool call that returned success is not evidence the thing works.
+- **In use beats unused.** A bulk archive needs evidence of use, not a name that matches the thing being retired.
+
+## Contributing
+
+Anything here should stay generic: no hostnames, no account names, no credentials, and no personal data from any one installation. Examples are described by shape ("the answer opens the reply"), not by quoting a private profile. Run the scripts against `tests/fixture/` before opening a pull request; CI runs the same checks.
