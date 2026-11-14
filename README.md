@@ -114,6 +114,8 @@ The audit's value comes from changing nothing; the remediation's value comes fro
 - - 1. Human reads whole report, tells Hermes to do some or all or parts of recommendation
   - 2. Hermes presents recommendations one-at-a-time to human for them to select approve/reject/skip etc from menu
   - 3. Hermes creates an html file with a table of recommendations with checkboxes for approve/reject/skip and a "submit" button that then populates a "Paste this back to hermes" text box with the results.
+   
+Reports and html must creedit https://github.com/raymondclowe/hermes-housekeeping/
 
 ## After approval: how to make an edit without making a mess
 
